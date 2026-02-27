@@ -1,0 +1,48 @@
+﻿@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-primary: #007758;
+  --brand-primary-hover: #00b889;
+  --brand-primary-soft: #e2f3ee;
+  --brand-secondary: #192630;
+
+  --bg-main: #f2f3f2;
+  --bg-surface: #f7f8f7;
+  --bg-soft: #ecefed;
+  --bg-soft-2: #e4e8e6;
+
+  --text-primary: #0f172a;
+  --text-muted: #475569;
+
+  --border-default: #d9dfdc;
+}
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    background: var(--bg-main);
+    color: var(--text-primary);
+    font-family: "Inter", sans-serif;
+  }
+}
+
+@layer components {
+  .core-shell {
+    @apply min-h-screen bg-bg-main text-text-primary flex items-center justify-center px-4;
+  }
+
+  .core-panel {
+    @apply w-full max-w-md bg-bg-surface border border-border-default rounded-xl shadow-lg p-6;
+  }
+
+  .core-card {
+    @apply bg-bg-surface border border-border-default rounded-xl shadow-sm p-6;
+  }
+}
