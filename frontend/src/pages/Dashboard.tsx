@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { me, clearToken, getToken } from "../api";
+import { me, clearTokens, getToken } from "../api";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ export default function DashboardPage() {
     me()
       .then((data) => setEmail(data.email))
       .catch(() => {
-        clearToken();
+        clearTokens();
         navigate("/login");
       })
       .finally(() => setLoading(false));

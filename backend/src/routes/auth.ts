@@ -1,14 +1,16 @@
 ﻿import { Router } from "express";
 import { z } from "zod";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import { authenticator } from "otplib";
 import { User } from "../models/User.js";
 import { requireAuth } from "../middleware/auth.js";
 import { logAudit } from "../lib/audit.js";
-
-const JWT_SECRET = process.env.JWT_SECRET || "";
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h";
+import {
+  revokeToken,
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken
+} from "../lib/jwt.js";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -50,12 +52,11 @@ authRouter.post("/login", async (req, res) => {
     return res.status(401).json({ error: "Invalid credentials" });
   }
 
-  const token = jwt.sign({ sub: String(user.id), email: user.email }, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN
-  });
+  const accessToken = signAccessToken({ id: String(user.id), email: user.email });
+  const refreshToken = signRefreshToken({ id: String(user.id), email: user.email });
 
   await logAudit({ action: "AUTH_LOGIN", success: true, req, userId: user.id });
-  return res.json({ accessToken: token });
+  return res.json({ accessToken, refreshToken });
 });
 
 authRouter.get("/me", requireAuth, async (req, res) => {
@@ -64,4 +65,44 @@ authRouter.get("/me", requireAuth, async (req, res) => {
   }
 
   return res.json({ id: req.user.id, email: req.user.email });
+});
+
+authRouter.post("/refresh", async (req, res) => {
+  const refreshToken = req.body?.refreshToken;
+  if (!refreshToken || typeof refreshToken !== "string") {
+    return res.status(400).json({ error: "Invalid payload" });
+  }
+
+  const payload = verifyRefreshToken(refreshToken);
+  if (!payload) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  revokeToken(payload);
+  const accessToken = signAccessToken({ id: payload.sub, email: payload.email });
+  const newRefreshToken = signRefreshToken({ id: payload.sub, email: payload.email });
+
+  return res.json({ accessToken, refreshToken: newRefreshToken });
+});
+
+authRouter.post("/logout", requireAuth, async (req, res) => {
+  const refreshToken = req.body?.refreshToken;
+
+  if (req.user?.jti && req.user.exp) {
+    revokeToken({
+      sub: req.user.id,
+      email: req.user.email,
+      typ: "access",
+      jti: req.user.jti,
+      exp: req.user.exp
+    });
+  }
+
+  if (refreshToken && typeof refreshToken === "string") {
+    const payload = verifyRefreshToken(refreshToken);
+    if (payload) revokeToken(payload);
+  }
+
+  await logAudit({ action: "AUTH_LOGOUT", success: true, req, userId: req.user?.id ?? null });
+  return res.json({ ok: true });
 });

@@ -1,7 +1,5 @@
 ﻿import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET || "";
+import { verifyAccessToken } from "../lib/jwt.js";
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
@@ -10,11 +8,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 
   const token = authHeader.slice("Bearer ".length);
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as { sub: string; email: string };
-    req.user = { id: payload.sub, email: payload.email };
-    return next();
-  } catch {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const payload = verifyAccessToken(token);
+  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+  req.user = { id: payload.sub, email: payload.email, jti: payload.jti, exp: payload.exp, token };
+  return next();
 }

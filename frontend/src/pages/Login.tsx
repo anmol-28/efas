@@ -1,6 +1,6 @@
 ﻿import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, setToken } from "../api";
+import { login, setRefreshToken, setToken } from "../api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -15,8 +15,10 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const { accessToken } = await login(email, password, totp);
+      const { accessToken, refreshToken } = await login(email, password, totp);
       setToken(accessToken);
+      setRefreshToken(refreshToken);
+      sessionStorage.setItem("efas_access_granted", "1");
       navigate("/");
     } catch (err) {
       setError("Invalid credentials or TOTP.");

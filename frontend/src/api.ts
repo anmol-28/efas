@@ -17,13 +17,61 @@ export function setToken(token: string) {
   localStorage.setItem("efas_token", token);
 }
 
-export function clearToken() {
-  localStorage.removeItem("efas_token");
+export function getRefreshToken() {
+  return localStorage.getItem("efas_refresh_token");
 }
 
-function authHeaders() {
+export function setRefreshToken(token: string) {
+  localStorage.setItem("efas_refresh_token", token);
+}
+
+export function clearTokens() {
+  localStorage.removeItem("efas_token");
+  localStorage.removeItem("efas_refresh_token");
+}
+
+function handleUnauthorized() {
+  clearTokens();
+  window.location.assign("/login");
+}
+
+async function refreshAccessToken() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+
+  const res = await fetch(`${API_BASE}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken })
+  });
+
+  if (!res.ok) return false;
+  const data = (await res.json()) as { accessToken: string; refreshToken: string };
+  setToken(data.accessToken);
+  setRefreshToken(data.refreshToken);
+  return true;
+}
+
+async function apiFetch(input: RequestInfo, init: RequestInit = {}, auth = true) {
+  const headers = new Headers(init.headers);
+  if (auth) {
+    const token = getToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const res = await fetch(input, { ...init, headers });
+  if (!auth || res.status !== 401) return res;
+
+  const refreshed = await refreshAccessToken();
+  if (!refreshed) {
+    handleUnauthorized();
+    return res;
+  }
+
+  const retryHeaders = new Headers(init.headers);
   const token = getToken();
-  return { Authorization: `Bearer ${token}` };
+  if (token) retryHeaders.set("Authorization", `Bearer ${token}`);
+  return fetch(input, { ...init, headers: retryHeaders });
 }
 
 export async function login(email: string, password: string, totp: string) {
@@ -38,13 +86,11 @@ export async function login(email: string, password: string, totp: string) {
   }
 
   const data = await res.json();
-  return data as { accessToken: string };
+  return data as { accessToken: string; refreshToken: string };
 }
 
 export async function me() {
-  const res = await fetch(`${API_BASE}/auth/me`, {
-    headers: authHeaders()
-  });
+  const res = await apiFetch(`${API_BASE}/auth/me`);
 
   if (!res.ok) {
     throw new Error("Unauthorized");
@@ -54,9 +100,7 @@ export async function me() {
 }
 
 export async function securityProfileStatus() {
-  const res = await fetch(`${API_BASE}/security-profile/status`, {
-    headers: authHeaders()
-  });
+  const res = await apiFetch(`${API_BASE}/security-profile/status`);
 
   if (!res.ok) {
     throw new Error("Failed to load security profile status");
@@ -66,9 +110,9 @@ export async function securityProfileStatus() {
 }
 
 export async function securityProfileToggle(enabled: boolean) {
-  const res = await fetch(`${API_BASE}/security-profile/toggle`, {
+  const res = await apiFetch(`${API_BASE}/security-profile/toggle`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ enabled })
   });
 
@@ -84,9 +128,9 @@ export async function securityProfileSetup(input: {
   answer2: string;
   answer3: string;
 }) {
-  const res = await fetch(`${API_BASE}/security-profile/setup`, {
+  const res = await apiFetch(`${API_BASE}/security-profile/setup`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input)
   });
 
@@ -98,9 +142,7 @@ export async function securityProfileSetup(input: {
 }
 
 export async function vaultList() {
-  const res = await fetch(`${API_BASE}/vault`, {
-    headers: authHeaders()
-  });
+  const res = await apiFetch(`${API_BASE}/vault`);
 
   if (!res.ok) {
     throw new Error("Failed to load vault");
@@ -116,9 +158,9 @@ export async function vaultCreate(input: {
   description?: string;
   userPassword: string;
 }) {
-  const res = await fetch(`${API_BASE}/vault`, {
+  const res = await apiFetch(`${API_BASE}/vault`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input)
   });
 
@@ -139,9 +181,9 @@ export async function vaultUpdate(
     userPassword: string;
   }
 ) {
-  const res = await fetch(`${API_BASE}/vault/${id}`, {
+  const res = await apiFetch(`${API_BASE}/vault/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input)
   });
 
@@ -153,10 +195,7 @@ export async function vaultUpdate(
 }
 
 export async function vaultDelete(id: string) {
-  const res = await fetch(`${API_BASE}/vault/${id}`, {
-    method: "DELETE",
-    headers: authHeaders()
-  });
+  const res = await apiFetch(`${API_BASE}/vault/${id}`, { method: "DELETE" });
 
   if (!res.ok) {
     throw new Error("Failed to delete entry");
@@ -174,9 +213,9 @@ export async function vaultReveal(
     userPassword: string;
   }
 ) {
-  const res = await fetch(`${API_BASE}/vault/${id}/reveal`, {
+  const res = await apiFetch(`${API_BASE}/vault/${id}/reveal`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input)
   });
 
@@ -185,4 +224,21 @@ export async function vaultReveal(
   }
 
   return (await res.json()) as { password: string };
+}
+
+export async function logout() {
+  const refreshToken = getRefreshToken();
+  try {
+    await apiFetch(
+      `${API_BASE}/auth/logout`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken })
+      },
+      true
+    );
+  } finally {
+    clearTokens();
+  }
 }

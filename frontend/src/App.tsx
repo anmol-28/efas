@@ -7,20 +7,19 @@ import SecurityProfilePage from "./pages/SecurityProfile";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const token = getToken();
-  if (!token) return <Navigate to="/login" replace />;
+  if (!token) return <LoginPage />;
   return children;
 }
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={getToken() ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signin" element={<LoginPage />} />
       <Route
         path="/"
         element={
-          <RequireAuth>
-            <VaultPage />
-          </RequireAuth>
+          getToken() ? <VaultPage /> : <LoginPage />
         }
       />
       <Route
