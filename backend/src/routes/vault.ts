@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import { requireAuth } from "../middleware/auth.js";
 import { VaultEntry } from "../models/VaultEntry.js";
 import { SecurityProfile } from "../models/SecurityProfile.js";
+import { User } from "../models/User.js";
 import { logAudit } from "../lib/audit.js";
 
 const createSchema = z.object({
@@ -24,9 +25,9 @@ const updateSchema = z.object({
 });
 
 const revealSchema = z.object({
-  answer1: z.string().min(1),
-  answer2: z.string().min(1),
-  answer3: z.string().min(1),
+  answer1: z.string().min(1).optional(),
+  answer2: z.string().min(1).optional(),
+  answer3: z.string().min(1).optional(),
   userPassword: z.string().min(1)
 });
 
@@ -199,27 +200,36 @@ vaultRouter.post("/:id/reveal", requireAuth, async (req, res) => {
     return res.status(404).json({ error: "Not found" });
   }
 
-  const profile = await SecurityProfile.findByPk(req.user.id);
-  if (!profile) {
-    await logAudit({ action: "VAULT_REVEAL", success: false, req, userId: req.user.id, targetId: req.params.id });
-    return res.status(404).json({ error: "Security profile not configured" });
+  const user = await User.findByPk(req.user.id);
+  const securityEnabled = user?.securityProfileEnabled ?? true;
+
+  if (securityEnabled) {
+    const profile = await SecurityProfile.findByPk(req.user.id);
+    if (!profile) {
+      await logAudit({ action: "VAULT_REVEAL", success: false, req, userId: req.user.id, targetId: req.params.id });
+      return res.status(404).json({ error: "Security profile not configured" });
+    }
+
+    const { answer1, answer2, answer3 } = parse.data;
+    if (!answer1 || !answer2 || !answer3) {
+      await logAudit({ action: "VAULT_REVEAL", success: false, req, userId: req.user.id, targetId: req.params.id });
+      return res.status(400).json({ error: "Invalid payload" });
+    }
+
+    const [ok1, ok2, ok3] = await Promise.all([
+      bcrypt.compare(answer1, profile.answerOneHash),
+      bcrypt.compare(answer2, profile.answerTwoHash),
+      bcrypt.compare(answer3, profile.answerThreeHash)
+    ]);
+
+    const ok = ok1 && ok2 && ok3;
+    if (!ok) {
+      await logAudit({ action: "VAULT_REVEAL", success: false, req, userId: req.user.id, targetId: req.params.id });
+      return res.status(401).json({ ok: false });
+    }
   }
 
-  const { answer1, answer2, answer3, userPassword } = parse.data;
-
-  const [ok1, ok2, ok3] = await Promise.all([
-    bcrypt.compare(answer1, profile.answerOneHash),
-    bcrypt.compare(answer2, profile.answerTwoHash),
-    bcrypt.compare(answer3, profile.answerThreeHash)
-  ]);
-
-  const ok = ok1 && ok2 && ok3;
-  if (!ok) {
-    await logAudit({ action: "VAULT_REVEAL", success: false, req, userId: req.user.id, targetId: req.params.id });
-    return res.status(401).json({ ok: false });
-  }
-
-  const key = deriveKey(userPassword, req.user.id);
+  const key = deriveKey(parse.data.userPassword, req.user.id);
   try {
     const password = decryptPassword(entry.encryptedPassword, key, entry.encIv, entry.encTag);
     await logAudit({ action: "VAULT_REVEAL", success: true, req, userId: req.user.id, targetId: entry.id });

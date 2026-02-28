@@ -7,10 +7,11 @@ export interface UserAttributes {
   passwordHash: string;
   totpSecret: string;
   isActive: boolean;
+  securityProfileEnabled: boolean;
   createdAt: Date;
 }
 
-type UserCreationAttributes = Optional<UserAttributes, "id" | "createdAt">;
+type UserCreationAttributes = Optional<UserAttributes, "id" | "createdAt" | "securityProfileEnabled">;
 
 export class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   declare id: string;
@@ -18,6 +19,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   declare passwordHash: string;
   declare totpSecret: string;
   declare isActive: boolean;
+  declare securityProfileEnabled: boolean;
   declare createdAt: Date;
 }
 
@@ -49,6 +51,12 @@ User.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       field: "is_active",
+      defaultValue: true
+    },
+    securityProfileEnabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      field: "security_profile_enabled",
       defaultValue: true
     },
     createdAt: {

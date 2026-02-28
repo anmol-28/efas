@@ -62,7 +62,21 @@ export async function securityProfileStatus() {
     throw new Error("Failed to load security profile status");
   }
 
-  return (await res.json()) as { configured: boolean };
+  return (await res.json()) as { configured: boolean; enabled: boolean };
+}
+
+export async function securityProfileToggle(enabled: boolean) {
+  const res = await fetch(`${API_BASE}/security-profile/toggle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ enabled })
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to update security profile setting");
+  }
+
+  return (await res.json()) as { ok: boolean; enabled: boolean };
 }
 
 export async function securityProfileSetup(input: {
@@ -154,9 +168,9 @@ export async function vaultDelete(id: string) {
 export async function vaultReveal(
   id: string,
   input: {
-    answer1: string;
-    answer2: string;
-    answer3: string;
+    answer1?: string;
+    answer2?: string;
+    answer3?: string;
     userPassword: string;
   }
 ) {

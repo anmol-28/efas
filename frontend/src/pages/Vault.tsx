@@ -4,6 +4,7 @@ import {
   clearToken,
   getToken,
   securityProfileStatus,
+  securityProfileToggle,
   vaultCreate,
   vaultDelete,
   vaultList,
@@ -25,6 +26,7 @@ export default function VaultPage() {
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [securityConfigured, setSecurityConfigured] = useState<boolean | null>(null);
+  const [securityEnabled, setSecurityEnabled] = useState<boolean | null>(null);
 
   const [form, setForm] = useState({
     platformName: "",
@@ -60,6 +62,7 @@ export default function VaultPage() {
       const [data, status] = await Promise.all([vaultList(), securityProfileStatus()]);
       setEntries(data);
       setSecurityConfigured(status.configured);
+      setSecurityEnabled(status.enabled);
     } catch {
       clearToken();
       navigate("/login");
@@ -85,7 +88,7 @@ export default function VaultPage() {
   }
 
   function openReveal(entry: VaultEntry) {
-    if (securityConfigured === false) {
+    if (securityEnabled !== false && securityConfigured === false) {
       navigate("/security-profile");
       return;
     }
@@ -168,9 +171,9 @@ export default function VaultPage() {
 
     try {
       const res = await vaultReveal(revealing.id, {
-        answer1: revealForm.answer1,
-        answer2: revealForm.answer2,
-        answer3: revealForm.answer3,
+        answer1: securityEnabled !== false ? revealForm.answer1 : undefined,
+        answer2: securityEnabled !== false ? revealForm.answer2 : undefined,
+        answer3: securityEnabled !== false ? revealForm.answer3 : undefined,
         userPassword: revealForm.userPassword
       });
       setRevealedPassword(res.password);
@@ -204,6 +207,24 @@ export default function VaultPage() {
             <p className="mt-1 text-sm text-text-muted">Manage your stored credentials.</p>
           </div>
           <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-text-primary">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={securityEnabled !== false}
+                onChange={async (e) => {
+                  const next = e.target.checked;
+                  try {
+                    const res = await securityProfileToggle(next);
+                    setSecurityEnabled(res.enabled);
+                  } catch {
+                    setToast("Failed to update security setting.");
+                    window.setTimeout(() => setToast(null), 1500);
+                  }
+                }}
+              />
+              Security profile
+            </label>
             <button
               className="rounded-md border border-border-default px-4 py-2 text-sm text-text-primary hover:bg-bg-soft transition"
               onClick={() => {
@@ -223,9 +244,14 @@ export default function VaultPage() {
         </div>
 
         {error && <div className="mb-4 text-sm text-red-600">{error}</div>}
-        {securityConfigured === false && (
+        {securityEnabled === false && (
           <div className="mb-4 rounded-md border border-border-default bg-bg-soft px-4 py-3 text-sm text-text-primary">
-            Security profile is not configured.{" "}
+            Security profile is turned off. Reveal will only require your re-auth password.
+          </div>
+        )}
+        {securityEnabled !== false && securityConfigured === false && (
+          <div className="mb-4 rounded-md border border-border-default bg-bg-soft px-4 py-3 text-sm text-text-primary">
+            Security profile is not configured. {""}
             <button
               className="text-brand-primary hover:text-brand-primaryHover font-medium"
               onClick={() => navigate("/security-profile")}
@@ -262,7 +288,7 @@ export default function VaultPage() {
                         <button
                           className="text-brand-primary hover:text-brand-primaryHover text-sm disabled:opacity-50"
                           onClick={() => openReveal(entry)}
-                          disabled={securityConfigured === false}
+                          disabled={securityEnabled !== false && securityConfigured === false}
                         >
                           Reveal
                         </button>
@@ -383,45 +409,51 @@ export default function VaultPage() {
           <div className="w-full max-w-lg rounded-xl bg-bg-surface border border-border-default p-6 shadow-lg">
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-text-primary">Reveal Password</h2>
-              <p className="text-sm text-text-muted">Verify your security profile to reveal.</p>
+              <p className="text-sm text-text-muted">
+                {securityEnabled === false
+                  ? "Re-auth to reveal your password."
+                  : "Verify your security profile to reveal."}
+              </p>
             </div>
 
             <form onSubmit={onRevealSubmit} className="space-y-4" autoComplete="off">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="reveal-answer-1">Something You Know — Primary Secret Phrase</label>
-                  <input
-                    id="reveal-answer-1"
-                    className="w-full px-3 py-2 rounded-md border border-border-default bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                    value={revealForm.answer1}
-                    onChange={(e) => setRevealForm({ ...revealForm, answer1: e.target.value })}
-                    autoComplete="off"
-                    required
-                  />
+              {securityEnabled !== false && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="reveal-answer-1">Something You Know — Primary Secret Phrase</label>
+                    <input
+                      id="reveal-answer-1"
+                      className="w-full px-3 py-2 rounded-md border border-border-default bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                      value={revealForm.answer1}
+                      onChange={(e) => setRevealForm({ ...revealForm, answer1: e.target.value })}
+                      autoComplete="off"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="reveal-answer-2">Something You Own — Personal Numeric Identifier</label>
+                    <input
+                      id="reveal-answer-2"
+                      className="w-full px-3 py-2 rounded-md border border-border-default bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                      value={revealForm.answer2}
+                      onChange={(e) => setRevealForm({ ...revealForm, answer2: e.target.value })}
+                      autoComplete="off"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="reveal-answer-3">Something You Are — Private Identifier String</label>
+                    <input
+                      id="reveal-answer-3"
+                      className="w-full px-3 py-2 rounded-md border border-border-default bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                      value={revealForm.answer3}
+                      onChange={(e) => setRevealForm({ ...revealForm, answer3: e.target.value })}
+                      autoComplete="off"
+                      required
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label htmlFor="reveal-answer-2">Something You Own — Personal Numeric Identifier</label>
-                  <input
-                    id="reveal-answer-2"
-                    className="w-full px-3 py-2 rounded-md border border-border-default bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                    value={revealForm.answer2}
-                    onChange={(e) => setRevealForm({ ...revealForm, answer2: e.target.value })}
-                    autoComplete="off"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="reveal-answer-3">Something You Are — Private Identifier String</label>
-                  <input
-                    id="reveal-answer-3"
-                    className="w-full px-3 py-2 rounded-md border border-border-default bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                    value={revealForm.answer3}
-                    onChange={(e) => setRevealForm({ ...revealForm, answer3: e.target.value })}
-                    autoComplete="off"
-                    required
-                  />
-                </div>
-              </div>
+              )}
 
               <div>
                 <label htmlFor="reveal-user-password">Re-auth Password</label>

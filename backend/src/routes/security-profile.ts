@@ -3,6 +3,7 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import { requireAuth } from "../middleware/auth.js";
 import { SecurityProfile } from "../models/SecurityProfile.js";
+import { User } from "../models/User.js";
 import { logAudit } from "../lib/audit.js";
 
 const setupSchema = z.object({
@@ -13,13 +14,43 @@ const setupSchema = z.object({
 
 const verifySchema = setupSchema;
 
+const toggleSchema = z.object({
+  enabled: z.boolean()
+});
+
 export const securityProfileRouter = Router();
 
 securityProfileRouter.get("/status", requireAuth, async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-  const existing = await SecurityProfile.findByPk(req.user.id);
-  return res.json({ configured: !!existing });
+  const [existing, user] = await Promise.all([
+    SecurityProfile.findByPk(req.user.id),
+    User.findByPk(req.user.id)
+  ]);
+
+  return res.json({ configured: !!existing, enabled: user?.securityProfileEnabled ?? true });
+});
+
+securityProfileRouter.post("/toggle", requireAuth, async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  const parse = toggleSchema.safeParse(req.body);
+  if (!parse.success) {
+    await logAudit({ action: "SECURITY_PROFILE_TOGGLE", success: false, req, userId: req.user.id });
+    return res.status(400).json({ error: "Invalid payload" });
+  }
+
+  const user = await User.findByPk(req.user.id);
+  if (!user) {
+    await logAudit({ action: "SECURITY_PROFILE_TOGGLE", success: false, req, userId: req.user.id });
+    return res.status(404).json({ error: "Not found" });
+  }
+
+  user.securityProfileEnabled = parse.data.enabled;
+  await user.save();
+
+  await logAudit({ action: "SECURITY_PROFILE_TOGGLE", success: true, req, userId: req.user.id });
+  return res.json({ ok: true, enabled: user.securityProfileEnabled });
 });
 
 securityProfileRouter.post("/setup", requireAuth, async (req, res) => {
