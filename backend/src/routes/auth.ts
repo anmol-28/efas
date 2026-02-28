@@ -16,10 +16,13 @@ import rateLimit from "express-rate-limit";
 
 const accessCookieName = "efas_access";
 const refreshCookieName = "efas_refresh";
+const cookieSameSite =
+  (process.env.COOKIE_SAMESITE as "lax" | "strict" | "none" | undefined) ||
+  (process.env.NODE_ENV === "production" ? "none" : "lax");
 
 const baseCookieOptions = {
   httpOnly: true,
-  sameSite: "strict" as const,
+  sameSite: cookieSameSite,
   secure: process.env.NODE_ENV === "production",
   path: "/"
 };

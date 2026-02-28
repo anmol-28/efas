@@ -13,6 +13,7 @@ const port = Number(process.env.PORT || 3000);
 const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 const isProd = process.env.NODE_ENV === "production";
 
+app.set("trust proxy", 1);
 app.use(
   cors({
     origin: clientOrigin,
