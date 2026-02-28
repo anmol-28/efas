@@ -9,20 +9,7 @@ export type VaultEntry = {
   updated_at: string;
 };
 
-export function getToken() {
-  return localStorage.getItem("efas_token");
-}
-
-export function setToken(token: string) {
-  localStorage.setItem("efas_token", token);
-}
-
-export function clearTokens() {
-  localStorage.removeItem("efas_token");
-}
-
 function handleUnauthorized() {
-  clearTokens();
   window.location.assign("/login");
 }
 
@@ -34,30 +21,31 @@ async function refreshAccessToken() {
   });
 
   if (!res.ok) return false;
-  const data = (await res.json()) as { accessToken: string };
-  setToken(data.accessToken);
+  await res.json();
   return true;
 }
 
 async function apiFetch(input: RequestInfo, init: RequestInit = {}, auth = true) {
   const headers = new Headers(init.headers);
-  if (auth) {
-    const token = getToken();
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-  }
 
   const res = await fetch(input, { ...init, headers, credentials: "include" });
   if (!auth || res.status !== 401) return res;
 
+  const url = typeof input === "string" ? input : "";
+  if (url.includes("/auth/login") || url.includes("/auth/refresh")) {
+    return res;
+  }
+
   const refreshed = await refreshAccessToken();
   if (!refreshed) {
-    handleUnauthorized();
+    const path = window.location.pathname;
+    if (path !== "/login" && path !== "/signin") {
+      handleUnauthorized();
+    }
     return res;
   }
 
   const retryHeaders = new Headers(init.headers);
-  const token = getToken();
-  if (token) retryHeaders.set("Authorization", `Bearer ${token}`);
   return fetch(input, { ...init, headers: retryHeaders, credentials: "include" });
 }
 
@@ -73,8 +61,7 @@ export async function login(email: string, password: string, totp: string) {
     throw new Error("Login failed");
   }
 
-  const data = await res.json();
-  return data as { accessToken: string };
+  return (await res.json()) as { ok: boolean };
 }
 
 export async function me() {
@@ -225,6 +212,6 @@ export async function logout() {
       true
     );
   } finally {
-    clearTokens();
+    // access/refresh cookies cleared server-side
   }
 }

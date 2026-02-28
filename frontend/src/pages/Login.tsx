@@ -1,6 +1,6 @@
 ﻿import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, setToken } from "../api";
+import { login } from "../api";
 import { getTheme, toggleTheme } from "../lib/theme";
 import { FiMoon, FiSun } from "react-icons/fi";
 
@@ -18,8 +18,7 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const { accessToken } = await login(email, password, totp);
-      setToken(accessToken);
+      await login(email, password, totp);
       sessionStorage.setItem("efas_access_granted", "1");
       navigate("/", { replace: true });
       window.location.assign("/");
@@ -99,6 +98,15 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
+        <div className="mt-5 rounded-lg border border-border-default bg-bg-soft px-3 py-2 text-xs text-text-muted">
+          Need a vault ID? Reach me at{" "}
+          <a
+            href="mailto:n3o.th1.28@gmail.com"
+            className="font-semibold text-brand-primary hover:text-brand-primaryHover transition"
+          >
+            n3o.th1.28@gmail.com
+          </a>
+        </div>
       </div>
     </div>
   );

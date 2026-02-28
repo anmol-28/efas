@@ -1,8 +1,6 @@
 ﻿import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  clearTokens,
-  getToken,
   logout,
   securityProfileStatus,
   securityProfileToggle,
@@ -198,12 +196,6 @@ export default function VaultPage() {
   }, [platformInput]);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
     const show = sessionStorage.getItem("efas_access_granted") === "1";
     if (show) {
       sessionStorage.removeItem("efas_access_granted");
@@ -248,7 +240,6 @@ export default function VaultPage() {
       setSecurityEnabled(status.enabled);
       setPage(1);
     } catch {
-      clearTokens();
       navigate("/login");
     } finally {
       setLoading(false);

@@ -2,6 +2,7 @@
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import { authenticator } from "otplib";
+import crypto from "crypto";
 import { User } from "../models/User.js";
 import { requireAuth } from "../middleware/auth.js";
 import { logAudit } from "../lib/audit.js";
@@ -13,11 +14,18 @@ import {
 } from "../lib/jwt.js";
 import rateLimit from "express-rate-limit";
 
+const accessCookieName = "efas_access";
 const refreshCookieName = "efas_refresh";
-const refreshCookieOptions = {
+
+const baseCookieOptions = {
   httpOnly: true,
-  sameSite: "lax" as const,
+  sameSite: "strict" as const,
   secure: process.env.NODE_ENV === "production",
+  path: "/"
+};
+
+const refreshCookieOptions = {
+  ...baseCookieOptions,
   path: "/auth"
 };
 
@@ -42,7 +50,32 @@ const loginSchema = z.object({
 });
 
 function decryptSecret(totpSecret: string) {
-  return totpSecret;
+  const keyMaterial = process.env.TOTP_ENC_KEY;
+  if (!keyMaterial) return totpSecret;
+  if (!totpSecret.startsWith("enc:")) return totpSecret;
+
+  const parts = totpSecret.split(":");
+  if (parts.length !== 4) return totpSecret;
+  const iv = Buffer.from(parts[1], "base64");
+  const tag = Buffer.from(parts[2], "base64");
+  const data = Buffer.from(parts[3], "base64");
+
+  const key = crypto.createHash("sha256").update(keyMaterial).digest();
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  const plain = Buffer.concat([decipher.update(data), decipher.final()]);
+  return plain.toString("utf8");
+}
+
+export function encryptSecret(totpSecret: string) {
+  const keyMaterial = process.env.TOTP_ENC_KEY;
+  if (!keyMaterial) return totpSecret;
+  const iv = crypto.randomBytes(12);
+  const key = crypto.createHash("sha256").update(keyMaterial).digest();
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(totpSecret, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `enc:${iv.toString("base64")}:${tag.toString("base64")}:${encrypted.toString("base64")}`;
 }
 
 export const authRouter = Router();
@@ -78,8 +111,9 @@ authRouter.post("/login", loginLimiter, async (req, res) => {
   const refreshToken = signRefreshToken({ id: String(user.id), email: user.email });
 
   await logAudit({ action: "AUTH_LOGIN", success: true, req, userId: user.id });
+  res.cookie(accessCookieName, accessToken, baseCookieOptions);
   res.cookie(refreshCookieName, refreshToken, refreshCookieOptions);
-  return res.json({ accessToken });
+  return res.json({ ok: true });
 });
 
 authRouter.get("/me", requireAuth, async (req, res) => {
@@ -113,9 +147,10 @@ authRouter.post("/refresh", refreshLimiter, async (req, res) => {
   const accessToken = signAccessToken({ id: payload.sub, email: payload.email });
   const newRefreshToken = signRefreshToken({ id: payload.sub, email: payload.email });
 
+  res.cookie(accessCookieName, accessToken, baseCookieOptions);
   res.cookie(refreshCookieName, newRefreshToken, refreshCookieOptions);
   await logAudit({ action: "AUTH_REFRESH", success: true, req, userId: user.id });
-  return res.json({ accessToken });
+  return res.json({ ok: true });
 });
 
 authRouter.post("/logout", requireAuth, async (req, res) => {
@@ -137,6 +172,7 @@ authRouter.post("/logout", requireAuth, async (req, res) => {
   }
 
   await logAudit({ action: "AUTH_LOGOUT", success: true, req, userId: req.user?.id ?? null });
+  res.clearCookie(accessCookieName, baseCookieOptions);
   res.clearCookie(refreshCookieName, refreshCookieOptions);
   return res.json({ ok: true });
 });

@@ -11,6 +11,7 @@ import { initDatabase } from "./lib/sequelize.js";
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const isProd = process.env.NODE_ENV === "production";
 
 app.use(
   cors({
@@ -25,14 +26,14 @@ app.use(
       directives: {
         "default-src": ["'self'"],
         "img-src": ["'self'", "data:"],
-        "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
+        "style-src": isProd
+          ? ["'self'", "https://fonts.googleapis.com"]
+          : ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
         "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
         "script-src": ["'self'"],
-        "connect-src": [
-          "'self'",
-          "http://localhost:5173",
-          "ws://localhost:5173"
-        ]
+        "connect-src": isProd
+          ? ["'self'", clientOrigin]
+          : ["'self'", clientOrigin, "ws://localhost:5173"]
       }
     }
   })
