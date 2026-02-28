@@ -5,6 +5,14 @@ import { requireAuth } from "../middleware/auth.js";
 import { SecurityProfile } from "../models/SecurityProfile.js";
 import { User } from "../models/User.js";
 import { logAudit } from "../lib/audit.js";
+import rateLimit from "express-rate-limit";
+
+const securityLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 const setupSchema = z.object({
   answer1: z.string().min(1),
@@ -53,7 +61,7 @@ securityProfileRouter.post("/toggle", requireAuth, async (req, res) => {
   return res.json({ ok: true, enabled: user.securityProfileEnabled });
 });
 
-securityProfileRouter.post("/setup", requireAuth, async (req, res) => {
+securityProfileRouter.post("/setup", requireAuth, securityLimiter, async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
   const parse = setupSchema.safeParse(req.body);
@@ -86,7 +94,7 @@ securityProfileRouter.post("/setup", requireAuth, async (req, res) => {
   return res.json({ ok: true });
 });
 
-securityProfileRouter.post("/verify", requireAuth, async (req, res) => {
+securityProfileRouter.post("/verify", requireAuth, securityLimiter, async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
   const parse = verifySchema.safeParse(req.body);

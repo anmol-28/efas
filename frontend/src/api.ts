@@ -17,17 +17,8 @@ export function setToken(token: string) {
   localStorage.setItem("efas_token", token);
 }
 
-export function getRefreshToken() {
-  return localStorage.getItem("efas_refresh_token");
-}
-
-export function setRefreshToken(token: string) {
-  localStorage.setItem("efas_refresh_token", token);
-}
-
 export function clearTokens() {
   localStorage.removeItem("efas_token");
-  localStorage.removeItem("efas_refresh_token");
 }
 
 function handleUnauthorized() {
@@ -36,19 +27,15 @@ function handleUnauthorized() {
 }
 
 async function refreshAccessToken() {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
-
   const res = await fetch(`${API_BASE}/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken })
+    credentials: "include"
   });
 
   if (!res.ok) return false;
-  const data = (await res.json()) as { accessToken: string; refreshToken: string };
+  const data = (await res.json()) as { accessToken: string };
   setToken(data.accessToken);
-  setRefreshToken(data.refreshToken);
   return true;
 }
 
@@ -59,7 +46,7 @@ async function apiFetch(input: RequestInfo, init: RequestInit = {}, auth = true)
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const res = await fetch(input, { ...init, headers });
+  const res = await fetch(input, { ...init, headers, credentials: "include" });
   if (!auth || res.status !== 401) return res;
 
   const refreshed = await refreshAccessToken();
@@ -71,14 +58,15 @@ async function apiFetch(input: RequestInfo, init: RequestInit = {}, auth = true)
   const retryHeaders = new Headers(init.headers);
   const token = getToken();
   if (token) retryHeaders.set("Authorization", `Bearer ${token}`);
-  return fetch(input, { ...init, headers: retryHeaders });
+  return fetch(input, { ...init, headers: retryHeaders, credentials: "include" });
 }
 
 export async function login(email: string, password: string, totp: string) {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, totp })
+    body: JSON.stringify({ email, password, totp }),
+    credentials: "include"
   });
 
   if (!res.ok) {
@@ -86,7 +74,7 @@ export async function login(email: string, password: string, totp: string) {
   }
 
   const data = await res.json();
-  return data as { accessToken: string; refreshToken: string };
+  return data as { accessToken: string };
 }
 
 export async function me() {
@@ -227,14 +215,12 @@ export async function vaultReveal(
 }
 
 export async function logout() {
-  const refreshToken = getRefreshToken();
   try {
     await apiFetch(
       `${API_BASE}/auth/logout`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken })
+        headers: { "Content-Type": "application/json" }
       },
       true
     );

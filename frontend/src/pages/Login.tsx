@@ -1,6 +1,6 @@
 ﻿import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, setRefreshToken, setToken } from "../api";
+import { login, setToken } from "../api";
 import { getTheme, toggleTheme } from "../lib/theme";
 import { FiMoon, FiSun } from "react-icons/fi";
 
@@ -18,9 +18,8 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const { accessToken, refreshToken } = await login(email, password, totp);
+      const { accessToken } = await login(email, password, totp);
       setToken(accessToken);
-      setRefreshToken(refreshToken);
       sessionStorage.setItem("efas_access_granted", "1");
       navigate("/", { replace: true });
       window.location.assign("/");

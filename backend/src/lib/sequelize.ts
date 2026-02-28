@@ -21,4 +21,11 @@ export function getSequelize() {
 export async function initDatabase() {
   const db = getSequelize();
   await db.authenticate();
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS revoked_tokens (
+      jti text PRIMARY KEY,
+      expires_at timestamp NOT NULL,
+      created_at timestamp DEFAULT now() NOT NULL
+    );
+  `);
 }
