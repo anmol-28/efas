@@ -1,9 +1,11 @@
-﻿import { Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { getToken } from "./api";
 import LoginPage from "./pages/Login";
 import DashboardPage from "./pages/Dashboard";
 import VaultPage from "./pages/Vault";
 import SecurityProfilePage from "./pages/SecurityProfile";
+import { initTheme } from "./lib/theme";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const token = getToken();
@@ -12,16 +14,15 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    initTheme();
+  }, []);
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signin" element={<LoginPage />} />
-      <Route
-        path="/"
-        element={
-          getToken() ? <VaultPage /> : <LoginPage />
-        }
-      />
+      <Route path="/" element={getToken() ? <VaultPage /> : <LoginPage />} />
       <Route
         path="/security-profile"
         element={

@@ -1,9 +1,12 @@
 import crypto from "crypto";
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h";
 const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || "30d";
+
+const ACCESS_EXPIRES_IN = JWT_EXPIRES_IN as SignOptions["expiresIn"];
+const REFRESH_EXPIRES_IN = JWT_REFRESH_EXPIRES_IN as SignOptions["expiresIn"];
 
 type TokenType = "access" | "refresh";
 
@@ -29,23 +32,23 @@ function cleanupRevoked() {
 }
 
 export function signAccessToken(user: { id: string; email: string }) {
+  const jti = crypto.randomUUID();
   return jwt.sign(
-    { sub: String(user.id), email: user.email, typ: "access" as const },
+    { sub: String(user.id), email: user.email, typ: "access" as const, jti },
     JWT_SECRET,
     {
-      expiresIn: JWT_EXPIRES_IN,
-      jwtid: crypto.randomUUID()
+      expiresIn: ACCESS_EXPIRES_IN
     }
   );
 }
 
 export function signRefreshToken(user: { id: string; email: string }) {
+  const jti = crypto.randomUUID();
   return jwt.sign(
-    { sub: String(user.id), email: user.email, typ: "refresh" as const },
+    { sub: String(user.id), email: user.email, typ: "refresh" as const, jti },
     JWT_SECRET,
     {
-      expiresIn: JWT_REFRESH_EXPIRES_IN,
-      jwtid: crypto.randomUUID()
+      expiresIn: REFRESH_EXPIRES_IN
     }
   );
 }

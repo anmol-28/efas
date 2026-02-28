@@ -24,11 +24,11 @@ export default function DashboardPage() {
   }, [navigate]);
 
   return (
-    <div style={{ maxWidth: 600, margin: "40px auto", fontFamily: "system-ui" }}>
-      <h1>EFAS Dashboard</h1>
-      {loading && <p>Loading...</p>}
+    <div className="mx-auto mt-10 max-w-xl font-sans text-text-primary">
+      <h1 className="text-xl font-semibold">EFAS Dashboard</h1>
+      {loading && <p className="text-sm text-text-muted">Loading...</p>}
       {!loading && email && (
-        <p>
+        <p className="text-sm">
           Logged in as <strong>{email}</strong>
         </p>
       )}

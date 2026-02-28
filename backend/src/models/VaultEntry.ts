@@ -1,4 +1,4 @@
-﻿import { DataTypes, Model } from "sequelize";
+import { DataTypes, Model, Optional } from "sequelize";
 import { getSequelize } from "../lib/sequelize.js";
 
 export interface VaultEntryAttributes {
@@ -15,7 +15,15 @@ export interface VaultEntryAttributes {
   updatedAt: Date;
 }
 
-export class VaultEntry extends Model<VaultEntryAttributes> implements VaultEntryAttributes {
+type VaultEntryCreationAttributes = Optional<
+  VaultEntryAttributes,
+  "id" | "description" | "createdAt" | "updatedAt"
+>;
+
+export class VaultEntry
+  extends Model<VaultEntryAttributes, VaultEntryCreationAttributes>
+  implements VaultEntryAttributes
+{
   declare id: string;
   declare userId: string;
   declare platformName: string;

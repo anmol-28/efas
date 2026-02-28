@@ -14,7 +14,8 @@ import {
   type VaultEntry
 } from "../api";
 import * as SI from "react-icons/si";
-import { FiGlobe } from "react-icons/fi";
+import { FiGlobe, FiMoon, FiSun } from "react-icons/fi";
+import { getTheme, toggleTheme } from "../lib/theme";
 
 type PlatformOption = { label: string; value: string; icon: string };
 
@@ -157,6 +158,7 @@ export default function VaultPage() {
   const [showAccessGranted, setShowAccessGranted] = useState(false);
   const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<VaultEntry | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   const pageSize = 7;
 
   const [form, setForm] = useState({
@@ -211,6 +213,10 @@ export default function VaultPage() {
 
     refresh();
   }, [navigate]);
+
+  useEffect(() => {
+    setTheme(getTheme());
+  }, []);
 
   useEffect(() => {
     const raw = localStorage.getItem("efas_recent_platforms");
@@ -417,8 +423,8 @@ export default function VaultPage() {
         <header className="mb-6 flex items-center justify-between rounded-xl border border-border-default bg-bg-surface/90 px-6 py-4 shadow-sm glass-panel">
           <div>
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-brand-primary-soft border border-border-default flex items-center justify-center text-sm font-semibold text-brand-secondary">
-                EF
+              <div className="h-9 w-9 rounded-lg bg-brand-primary-soft border border-border-default flex items-center justify-center">
+                <img src="/efas-logo.png" alt="EFAS logo" className="h-6 w-6 object-contain" />
               </div>
               <div>
                 <div className="text-lg font-semibold text-text-primary">EFAS</div>
@@ -427,6 +433,14 @@ export default function VaultPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              className="rounded-md border border-border-default px-3 py-2 text-text-primary hover:bg-bg-soft transition"
+              onClick={() => setTheme(toggleTheme())}
+              aria-label="Toggle theme"
+              title="Toggle theme"
+            >
+              {theme === "dark" ? <FiSun /> : <FiMoon />}
+            </button>
             <button
               className="rounded-md border border-border-default px-4 py-2 text-sm text-text-primary hover:bg-bg-soft transition"
               onClick={async () => {

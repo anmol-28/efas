@@ -1,6 +1,8 @@
 ﻿import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login, setRefreshToken, setToken } from "../api";
+import { getTheme, toggleTheme } from "../lib/theme";
+import { FiMoon, FiSun } from "react-icons/fi";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -9,6 +11,7 @@ export default function LoginPage() {
   const [totp, setTotp] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(getTheme());
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -19,7 +22,8 @@ export default function LoginPage() {
       setToken(accessToken);
       setRefreshToken(refreshToken);
       sessionStorage.setItem("efas_access_granted", "1");
-      navigate("/");
+      navigate("/", { replace: true });
+      window.location.assign("/");
     } catch (err) {
       setError("Invalid credentials or TOTP.");
     } finally {
@@ -30,6 +34,20 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg-main">
       <div className="w-full max-w-md bg-bg-surface border border-border-default rounded-xl p-6 shadow-lg">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-text-muted">
+            <img src="/efas-logo.png" alt="EFAS logo" className="h-5 w-5 object-contain" />
+            EFAS
+          </div>
+          <button
+            className="rounded-md border border-border-default px-3 py-2 text-text-primary hover:bg-bg-soft transition"
+            onClick={() => setTheme(toggleTheme())}
+            aria-label="Toggle theme"
+            title="Toggle theme"
+          >
+            {theme === "dark" ? <FiSun /> : <FiMoon />}
+          </button>
+        </div>
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight text-text-primary">EFAS Login</h1>
           <p className="mt-1 text-sm text-text-muted">Sign in with email, password, and TOTP.</p>
@@ -37,8 +55,9 @@ export default function LoginPage() {
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label>Email</label>
+            <label htmlFor="login-email">Email</label>
             <input
+              id="login-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -48,8 +67,9 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label>Password</label>
+            <label htmlFor="login-password">Password</label>
             <input
+              id="login-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -59,8 +79,9 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label>TOTP</label>
+            <label htmlFor="login-totp">TOTP</label>
             <input
+              id="login-totp"
               type="text"
               value={totp}
               onChange={(e) => setTotp(e.target.value)}
